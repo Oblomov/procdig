@@ -40,9 +40,20 @@ static const char * PURE modspark(uchar val)
 	return sparktable[val % num_sparks];
 }
 
+/* A spark function and its name */
+
+struct sparkmode
+{
+	spark_fn func;
+	char *name;
+};
+
 /* Collection of spark functions */
 
-static const spark_fn sparkmodes[] = { scalespark, modspark };
+static const struct sparkmode sparkmodes[] = {
+	{ scalespark, "Linear scaling" },
+	{ modspark, "Modulus scaling" }
+};
 
 static const size_t num_sparkmodes = ARRAY_SIZE(sparkmodes);
 
@@ -61,7 +72,7 @@ static void render(uchar *src, size_t len)
 
 	for (size_t s = 0; s < num_sparkmodes; ++s)
 	{
-		spark_fn spark = sparkmodes[s];
+		spark_fn spark = sparkmodes[s].func;
 		for (size_t i = 0; i < SHA256_DIGEST_LENGTH; ++i)
 			fputs(spark(sha256[i]), stdout);
 		if (s < num_sparkmodes - 1)
@@ -72,6 +83,17 @@ static void render(uchar *src, size_t len)
 int main(int argc UNUSED, char *argv[] UNUSED)
 {
 	uchar src[] = { 0 };
+
+	/* Header */
+	printf("    \t");
+	for (size_t s = 0; s < num_sparkmodes; ++s)
+	{
+		printf("%-*s", SHA256_DIGEST_LENGTH, sparkmodes[s].name);
+		if (s < num_sparkmodes - 1)
+			fputs("\t", stdout);
+		else
+			fputs("\n", stdout);
+	}
 
 	printf("----\t");
 	render(src, 0);
