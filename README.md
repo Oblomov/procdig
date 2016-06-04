@@ -37,3 +37,15 @@ subdivisions of the world, and combined with the subdivision
 coordinates to generate the next level of hashes, which again would
 pass the information over to 1024 subdivisions of the next level, and
 so on.
+
+# Credits and licensing
+
+All documentation, unless otherwise specified, is licensed under the
+<a rel="license"
+href="http://creativecommons.org/licenses/by-sa/4.0/"><img
+alt="Creative Commons License"
+src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png"/>
+Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+
+All source code, unless otherwise specified, is licensed under the
+Mozilla Public License, version 2.0 (see LICENSING).
