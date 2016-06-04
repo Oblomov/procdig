@@ -221,13 +221,13 @@ int main(int argc UNUSED, char *argv[] UNUSED)
 		}
 	}
 
-	printf("----\t");
+	printf("\n----\t");
 	render_all(src, 0);
 	printf("\t");
 	for (uint v = 0; v <= UCHAR_MAX; ++v)
 	{
 		src[0] = v;
-		printf("\n%4u\t", v);
+		printf("\n\n%4u\t", v);
 		render_all(src, 1);
 	}
 	puts("");
