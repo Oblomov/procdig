@@ -38,6 +38,32 @@ coordinates to generate the next level of hashes, which again would
 pass the information over to 1024 subdivisions of the next level, and
 so on.
 
+# The sample code
+
+## basic
+
+The `basic` example uses SHA-256 more or less directly to generate
+1D height lines.
+
+For any given ‘seed’ (the null string, and each unsigned single-byte
+value), the SHA-256 is computed, giving 32 bytes. This sequence of
+bytes is transformed into a sequence of 32 heights (from 0 to 8
+inclusive, pictured using Unicode blocks) in a variety of ways.
+
+Two major grouping categories of the methods can be identified:
+
+* the starting value to compute the height in a cell: this can be either
+  the corresponding byte in the hash, or a value that also takes
+contributions from the preceding and following byte (modulo the number
+of bytes produced): the latter tends to smooth out the results, giving
+results more credible as topographies (at least with linear scaling),
+while the former gives more sharp changes (due to the hash variability),
+and the results are more easily identified as city skylines;
+
+* the way the starting value is transformed into a height: in this
+  case, a simple linear scaling is shown, as well as a value obtained
+with modulus (byte value modulus number of height values allowed).
+
 # Credits and licensing
 
 All documentation, unless otherwise specified, is licensed under the
