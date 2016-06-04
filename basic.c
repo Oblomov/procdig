@@ -10,6 +10,7 @@
 
 #define PURE __attribute__((pure))
 #define UNUSED __attribute__((unused))
+#define ARRAY_SIZE(ar) (sizeof(ar)/sizeof(*ar))
 
 typedef unsigned char uchar;
 typedef unsigned int uint;
@@ -20,17 +21,33 @@ static const char * const sparktable[]=
 {
 	" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"
 };
-static const size_t num_sparks = sizeof(sparktable)/sizeof(*sparktable);
-static const size_t num_uchars = (size_t)UCHAR_MAX + 1;
+static const size_t num_sparks = ARRAY_SIZE(sparktable);
+static const size_t sparks_max = ARRAY_SIZE(sparktable) - 1;
 
-/* Map a value from 0 to 255 to a sparktable address */
-static const char * PURE spark(uchar val)
+/* Function type for a map from a value in the [0, 255] range to a
+ * sparktable address */
+typedef const char * (*spark_fn)(uchar);
+
+/* Spark function using scaling */
+static const char * PURE scalespark(uchar val)
 {
-	return sparktable[(val*num_sparks)/num_uchars];
+	return sparktable[(val*sparks_max)/UCHAR_MAX];
 }
 
+/* Spark function using modular math */
+static const char * PURE modspark(uchar val)
+{
+	return sparktable[val % num_sparks];
+}
+
+/* Collection of spark functions */
+
+static const spark_fn sparkmodes[] = { scalespark, modspark };
+
+static const size_t num_sparkmodes = ARRAY_SIZE(sparkmodes);
+
 /* Render via sparklines the SHA256 hash of the given sequence of
- * unsigned bytes
+ * unsigned bytes, using the given spark function
  */
 static void render(uchar *src, size_t len)
 {
@@ -42,20 +59,27 @@ static void render(uchar *src, size_t len)
 	puts("|\n");
 #endif
 
-	for (size_t i = 0; i < SHA256_DIGEST_LENGTH; ++i)
-		fputs(spark(sha256[i]), stdout);
+	for (size_t s = 0; s < num_sparkmodes; ++s)
+	{
+		spark_fn spark = sparkmodes[s];
+		for (size_t i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+			fputs(spark(sha256[i]), stdout);
+		if (s < num_sparkmodes - 1)
+			fputs("\t", stdout);
+	}
 }
 
 int main(int argc UNUSED, char *argv[] UNUSED)
 {
 	uchar src[] = { 0 };
 
-	printf("---- ");
+	printf("----\t");
 	render(src, 0);
+	printf("\t");
 	for (uint v = 0; v <= UCHAR_MAX; ++v)
 	{
 		src[0] = v;
-		printf("\n%4u ", v);
+		printf("\n%4u\t", v);
 		render(src, 1);
 	}
 	puts("");
