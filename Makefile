@@ -7,7 +7,9 @@ CFLAGS += -Wall -Wextra
 LDFLAGS ?=
 LDFLAGS += -lcrypto
 
-basic:
+PROGS=basic sha256rng
+
+all: $(PROGS)
 
 clean:
-	$(RM) -f basic
+	$(RM) -f $(PROGS)
