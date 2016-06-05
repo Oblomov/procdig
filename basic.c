@@ -2,6 +2,13 @@
  * Illustrate for 257 seeds (null string, and unsigned values 0 to 255),
  * using multiple height generation functions (scaling, modulus) and
  * multiple smoothing functions (none, weighted, modulus).
+ *
+ * TODO:
+ *   * produce 4, 8, 16 or 64 heights by decoding the hash as a sequence
+ *     of uint64_t, uint32_t, uint16_t and nibbles;
+ *   * low-pass filter: still produce 32 heights, but only using the
+ *     lower nibbles, reserving the upper ones for something else (e.g.
+ *     color).
  */
 
 #include <stdio.h>
