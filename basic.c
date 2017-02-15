@@ -58,8 +58,8 @@ struct encmap {
 } while(0)
 #define ENC_FREE(encptr) free((encptr)->data)
 
-/* Ultimately, we want to visualize our results as a set of height.
- * Space and Unicode blocks U+2581 to U+2588 to show height in console
+/* Ultimately, we want to visualize our results as a set of heights.
+ * We use space and Unicode blocks U+2581 to U+2588 to show height in console
  */
 static const char * const sparktable[]=
 {
@@ -85,7 +85,7 @@ static inline void spark_encmap(struct encmap const *map)
 }
 
 /* A filter function is just a function that reads an encmap and
- * produces a new encmap. No condition are posed on the kind of
+ * produces a new encmap. No condition are imposed on the kind of
  * transformations allowed. Note that the data field in the output
  * encmap will be allocated by the filter function, without freeing it
  * beforehand. The count and maxval field may be initialized by the
@@ -96,8 +96,8 @@ typedef void (*filter_fn)(struct encmap *out, struct encmap const *in);
 /* A filter has a filter function and a name */
 struct filter
 {
-	filter_fn func;
-	char *name;
+	const filter_fn func;
+	const char *name;
 };
 
 /*
@@ -109,11 +109,11 @@ static void linear_scale(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 
 	for (size_t i = 0; i < count; ++i)
-		out->data[i] = (in->data[i]*out->maxval)/in->maxval;
+		out->data[i] = (in->data[i]*out->maxval)/in->maxval; /* FIXME beware of overflow */
 }
 
 /* Modular map: assumes out->maxval was set by the caller */
@@ -121,7 +121,7 @@ static void mod_map(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 
 	for (size_t i = 0; i < count; ++i)
@@ -146,7 +146,7 @@ static void identity(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = in->maxval;
 
@@ -159,7 +159,7 @@ static void lower_nibble(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = NIBBLE_MAX;
 
@@ -172,7 +172,7 @@ static void upper_nibble(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = NIBBLE_MAX;
 
@@ -185,13 +185,13 @@ static void nibble_sum(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = 2*NIBBLE_MAX - 1;
 
 	for (size_t i = 0; i < count; ++i)
 	{
-		uchar d = in->data[i];
+		const uchar d = in->data[i];
 		uchar n = d & NIBBLE_MASK;
 		n += ((d >> NIBBLE_SHIFT) & NIBBLE_MASK);
 		out->data[i] = n;
@@ -206,13 +206,13 @@ static void three_pt_addmod(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = in->maxval;
 
 	for (size_t i = 0; i < count; ++i) {
-		size_t prev = (i == 0 ? count - 1 : i - 1);
-		size_t next = (i == count - 1 ? 0 : i + 1);
+		const size_t prev = (i == 0 ? count - 1 : i - 1);
+		const size_t next = (i == count - 1 ? 0 : i + 1);
 		/* add as uint to avoid overflows */
 		uint val = in->data[prev];
 		val += in->data[i];
@@ -228,13 +228,13 @@ static void three_pt_avg(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = in->maxval;
 
 	for (size_t i = 0; i < count; ++i) {
-		size_t prev = (i == 0 ? count - 1 : i - 1);
-		size_t next = (i == count - 1 ? 0 : i + 1);
+		const size_t prev = (i == 0 ? count - 1 : i - 1);
+		const size_t next = (i == count - 1 ? 0 : i + 1);
 		/* add as uint to avoid overflows */
 		uint val = in->data[prev];
 		val += in->data[i];
@@ -251,13 +251,13 @@ static void three_pt_avg2(
 	struct encmap *out,
 	struct encmap const *in)
 {
-	size_t count = in->count;
+	const size_t count = in->count;
 	ENC_ALLOC(out, count);
 	out->maxval = in->maxval;
 
 	for (size_t i = 0; i < count; ++i) {
-		size_t prev = (i == 0 ? count - 1 : i - 1);
-		size_t next = (i == count - 1 ? 0 : i + 1);
+		const size_t prev = (i == 0 ? count - 1 : i - 1);
+		const size_t next = (i == count - 1 ? 0 : i + 1);
 		/* add as uint to avoid overflows */
 		uint val = in->data[prev];
 		val += in->data[i];
@@ -349,7 +349,7 @@ int main(int argc UNUSED, char *argv[] UNUSED)
 	printf("    \t");
 	for (size_t s = 0; s < num_process_filters; ++s)
 	{
-		int toplen = (SHA256_DIGEST_LENGTH + 8)*
+		const int toplen = (SHA256_DIGEST_LENGTH + 8)*
 			num_height_filters*num_process_filters;
 		printf("%-*s", toplen, process_filters[s].name);
 		if (s == num_process_filters - 1)
@@ -360,7 +360,7 @@ int main(int argc UNUSED, char *argv[] UNUSED)
 	{
 		for (size_t h = 0; h < num_height_filters; ++h)
 		{
-			int toplen = (SHA256_DIGEST_LENGTH + 8)*
+			const int toplen = (SHA256_DIGEST_LENGTH + 8)*
 				num_process_filters;
 			printf("%-*s", toplen, height_filters[h].name);
 		}
