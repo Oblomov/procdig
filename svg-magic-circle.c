@@ -51,6 +51,13 @@ struct control {
 	int bearing; /* 0 to MAX_BEARING = 0 */
 };
 
+void new_pos(struct control *dst, struct control const *src, int delta)
+{
+	double rad = dst->bearing*M_PI/(MAX_BEARING/2);
+	dst->cx = src->cx - delta*sin(rad);
+	dst->cy = src->cy - delta*cos(rad);
+}
+
 static const char * class[] = {
 	"essential",
 	"primary",
@@ -92,7 +99,7 @@ void print_missing_flags(int flags, bool hairline)
 			flags, flags | (hairline * HAIRLINE));
 }
 
-void path_spec(struct control const *vertex, int sides)
+void poly_path_spec(struct control const *vertex, int sides)
 {
 	printf("d='M %d %d", vertex[0].cx, vertex[0].cy);
 	for (int i = 1; i < sides; ++i) {
@@ -100,6 +107,18 @@ void path_spec(struct control const *vertex, int sides)
 	}
 	printf("z' ");
 }
+
+void eye_path_spec(struct control const *vertex, int r)
+{
+	printf("d='M %d %d "
+		"A %d %d 0 0 1 %d %d"
+		"A %d %d 0 0 1 %d %d"
+		"z' ",
+		vertex[0].cx, vertex[0].cy,
+		r, r, vertex[1].cx, vertex[1].cy,
+		r, r, vertex[0].cx, vertex[0].cy);
+}
+
 
 void draw_circle(struct control const *pos, int flags)
 {
@@ -122,9 +141,34 @@ void draw_circle(struct control const *pos, int flags)
 	puts("</g>");
 }
 
-void draw_eye(struct control const *pos UNUSED, ...)
+void draw_eye(struct control const *pos, int flags)
 {
-	puts("<!-- eye not implemented yet -->");
+	const bool hairline = flags & HAIRLINE;
+	const int dx = delta(pos, hairline);
+	const int thick = thickness[pos->order];
+	const int r = 3*pos->scale/2;
+	flags &= ~HAIRLINE;
+
+	struct control vertex[2];
+	vertex[0].bearing = pos->bearing - MAX_BEARING/4;
+	vertex[1].bearing = pos->bearing + MAX_BEARING/4;
+	new_pos(vertex+0, pos, dx);
+	new_pos(vertex+1, pos, dx);
+
+	printf("<g class='%s eye'>\n", class[pos->order]);
+	print_missing_flags(flags, hairline);
+	printf("<path "); eye_path_spec(vertex, r);
+	if (hairline) {
+		puts("/>");
+	} else {
+		printf("stroke-width='%d' />", thick);
+		printf("<path "); eye_path_spec(vertex, r);
+		printf("stroke-width='%d' class='overstrike' />\n",
+			thick - EXTRA_THICKNESS);
+	}
+	puts("</g>");
+
+	/* TODO flag to put eyeball in the eye */
 }
 
 void draw_polygon(struct control const *pos UNUSED, int sides, int flags)
@@ -143,21 +187,19 @@ void draw_polygon(struct control const *pos UNUSED, int sides, int flags)
 	for (int i = 0; i < sides; ++i) {
 		struct control *v = vertex + i;
 		v->bearing = pos->bearing + vb*(i - odd*sides/2);
-		double rad = v->bearing*M_PI/(MAX_BEARING/2);
-		v->cx = pos->cx - dx*sin(rad);
-		v->cy = pos->cy - dx*cos(rad);
+		new_pos(v, pos, dx);
 		v->order = pos->order + 1;
 		v->scale -= thick;
 	}
 
 	printf("<g class='polygon %s'>\n", class[pos->order]);
 	print_missing_flags(flags, hairline);
-	printf("<path "); path_spec(vertex, sides);
+	printf("<path "); poly_path_spec(vertex, sides);
 	if (hairline) {
 		puts("/>");
 	} else {
 		printf("stroke-width='%d' />", thick);
-		printf("<path "); path_spec(vertex, sides);
+		printf("<path "); poly_path_spec(vertex, sides);
 		printf("stroke-width='%d' class='overstrike' />\n",
 			thick - EXTRA_THICKNESS);
 	}
