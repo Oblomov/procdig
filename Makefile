@@ -5,9 +5,9 @@ CFLAGS += -g
 CFLAGS += -Wall -Wextra
 
 LDFLAGS ?=
-LDFLAGS += -lcrypto
+LDFLAGS += -lcrypto -lm
 
-PROGS=basic sha256rng
+PROGS=basic sha256rng svg-magic-circle
 
 all: $(PROGS)
 
