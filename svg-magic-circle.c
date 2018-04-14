@@ -83,6 +83,11 @@ static const int thickness[] = {
 #define HAIRLINE (1U<<(CHAR_BIT-1))
 #define EXTRA_THICKNESS 2
 
+/* Everything except for the circle can be flip/rotated: when this flag is enabled,
+ * the feature will be replicated, but rotated by either one or two straight
+ * angles, depending on the number of vertices */
+#define FLIPROT (HAIRLINE >> 1)
+
 /* Compute the circle radius/delta to move from cx/cy to find the vertices
  * considering the thickness of the feature to draw */
 int delta(struct control const *pos, bool hairline)
@@ -92,11 +97,11 @@ int delta(struct control const *pos, bool hairline)
 }
 
 /* Print the unused flags */
-void print_missing_flags(int flags, bool hairline)
+void print_missing_flags(int flags, int used)
 {
 	if (flags)
 		printf("<!-- flags %#x/%#x ignored -->\n",
-			flags, flags | (hairline * HAIRLINE));
+			flags, flags | used);
 }
 
 void poly_path_spec(struct control const *vertex, int sides)
@@ -123,12 +128,13 @@ void eye_path_spec(struct control const *vertex, int r)
 void draw_circle(struct control const *pos, int flags)
 {
 	const bool hairline = flags & HAIRLINE;
+	const int used_flags = flags & HAIRLINE;
 	const int dx = delta(pos, hairline);
 	const int thick = thickness[pos->order];
-	flags &= ~HAIRLINE;
+	flags &= ~used_flags;
 
 	printf("<g class='%s circle'>\n", class[pos->order]);
-	print_missing_flags(flags, hairline);
+	print_missing_flags(flags, used_flags);
 	if (hairline) {
 		printf("<circle cx='%d' cy='%d' r='%d'/>\n",
 			pos->cx, pos->cy, dx);
@@ -144,10 +150,12 @@ void draw_circle(struct control const *pos, int flags)
 void draw_eye(struct control const *pos, int flags)
 {
 	const bool hairline = flags & HAIRLINE;
+	const bool fliprot = flags & FLIPROT;
+	const int used_flags = flags & (HAIRLINE | FLIPROT);
 	const int dx = delta(pos, hairline);
 	const int thick = thickness[pos->order];
 	const int r = 3*pos->scale/2;
-	flags &= ~HAIRLINE;
+	flags &= ~used_flags;
 
 	struct control vertex[2];
 	vertex[0].bearing = pos->bearing - MAX_BEARING/4;
@@ -156,7 +164,7 @@ void draw_eye(struct control const *pos, int flags)
 	new_pos(vertex+1, pos, dx);
 
 	printf("<g class='%s eye'>\n", class[pos->order]);
-	print_missing_flags(flags, hairline);
+	print_missing_flags(flags, used_flags);
 	printf("<path "); eye_path_spec(vertex, r);
 	if (hairline) {
 		puts("/>");
@@ -169,20 +177,26 @@ void draw_eye(struct control const *pos, int flags)
 	puts("</g>");
 
 	/* TODO flag to put eyeball in the eye */
+
+	if (fliprot) {
+		struct control rot = *pos;
+		rot.bearing += MAX_BEARING/4;
+		draw_eye(&rot, (flags | used_flags) & ~FLIPROT);
+	}
 }
 
-void draw_polygon(struct control const *pos UNUSED, int sides, int flags)
+void draw_polygon(struct control const *pos, int sides, int flags)
 {
-	struct control vertex[MAX_NVERT];
-
 	const bool hairline = flags & HAIRLINE;
-	flags &= ~HAIRLINE;
-
+	const bool fliprot = flags & FLIPROT;
+	const int used_flags = flags & (HAIRLINE | FLIPROT);
 	const int dx = delta(pos, hairline);
-	const bool odd = sides & 1;
 	const int thick = thickness[pos->order];
+	const bool odd = sides & 1;
+	flags &= ~used_flags;
 
 	/* TODO exploit symmetries */
+	struct control vertex[MAX_NVERT];
 	const int vb = MAX_BEARING/sides;
 	for (int i = 0; i < sides; ++i) {
 		struct control *v = vertex + i;
@@ -204,6 +218,12 @@ void draw_polygon(struct control const *pos UNUSED, int sides, int flags)
 			thick - EXTRA_THICKNESS);
 	}
 	puts("</g>");
+
+	if (fliprot) {
+		struct control rot = *pos;
+		rot.bearing += odd ? MAX_BEARING/2 : vb/2;
+		draw_polygon(&rot, sides, (flags | used_flags) & ~FLIPROT);
+	}
 }
 
 
