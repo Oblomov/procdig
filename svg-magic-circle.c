@@ -47,8 +47,22 @@ struct control {
 	int cx;
 	int cy;
 	int scale;
-	int thickness;
+	int order;
 	int bearing; /* 0 to MAX_BEARING = 0 */
+};
+
+static const char * class[] = {
+	"essential",
+	"primary",
+	"secondary",
+	"tertiary",
+};
+
+static const int thickness[] = {
+	80,
+	60,
+	40,
+	20,
 };
 
 /* Each geometry can be drawn in one of two ways:
@@ -66,7 +80,7 @@ struct control {
  * considering the thickness of the feature to draw */
 int delta(struct control const *pos, bool hairline)
 {
-	return pos->scale - (hairline ? 0 : pos->thickness/2);
+	return pos->scale - (hairline ? 0 : thickness[pos->order]/2);
 
 }
 
@@ -87,13 +101,14 @@ void path_spec(struct control const *vertex, int sides)
 	printf("z' ");
 }
 
-void draw_circle(struct control const *pos, int flags, const char *class)
+void draw_circle(struct control const *pos, int flags)
 {
 	const bool hairline = flags & HAIRLINE;
 	const int dx = delta(pos, hairline);
+	const int thick = thickness[pos->order];
 	flags &= ~HAIRLINE;
 
-	printf("<g class='%s circle'>\n", class);
+	printf("<g class='%s circle'>\n", class[pos->order]);
 	print_missing_flags(flags, hairline);
 	if (hairline) {
 		printf("<circle cx='%d' cy='%d' r='%d'/>\n",
@@ -101,8 +116,8 @@ void draw_circle(struct control const *pos, int flags, const char *class)
 	} else {
 		printf(	"<circle cx='%d' cy='%d' r='%d' stroke-width='%d'/>\n"
 			"<circle cx='%d' cy='%d' r='%d' stroke-width='%d' class='overstrike'/>\n",
-			pos->cx, pos->cy, dx, pos->thickness,
-			pos->cx, pos->cy, dx, pos->thickness - EXTRA_THICKNESS);
+			pos->cx, pos->cy, dx, thick,
+			pos->cx, pos->cy, dx, thick - EXTRA_THICKNESS);
 	}
 	puts("</g>");
 }
@@ -112,7 +127,7 @@ void draw_eye(struct control const *pos UNUSED, ...)
 	puts("<!-- eye not implemented yet -->");
 }
 
-void draw_polygon(struct control const *pos UNUSED, int sides, int flags, const char *class)
+void draw_polygon(struct control const *pos UNUSED, int sides, int flags)
 {
 	struct control vertex[MAX_NVERT];
 
@@ -121,6 +136,7 @@ void draw_polygon(struct control const *pos UNUSED, int sides, int flags, const 
 
 	const int dx = delta(pos, hairline);
 	const bool odd = sides & 1;
+	const int thick = thickness[pos->order];
 
 	/* TODO exploit symmetries */
 	const int vb = MAX_BEARING/sides;
@@ -130,26 +146,27 @@ void draw_polygon(struct control const *pos UNUSED, int sides, int flags, const 
 		double rad = v->bearing*M_PI/(MAX_BEARING/2);
 		v->cx = pos->cx - dx*sin(rad);
 		v->cy = pos->cy - dx*cos(rad);
+		v->order = pos->order + 1;
+		v->scale -= thick;
 	}
 
-	printf("<g class='polygon %s'>\n", class);
+	printf("<g class='polygon %s'>\n", class[pos->order]);
 	print_missing_flags(flags, hairline);
-	printf("<!-- sides %d at scale %d, delta %d ignored -->\n", sides, pos->scale, dx);
 	printf("<path "); path_spec(vertex, sides);
 	if (hairline) {
 		puts("/>");
 	} else {
-		printf("stroke-width='%d' />", pos->thickness);
+		printf("stroke-width='%d' />", thick);
 		printf("<path "); path_spec(vertex, sides);
 		printf("stroke-width='%d' class='overstrike' />\n",
-			pos->thickness - EXTRA_THICKNESS);
+			thick - EXTRA_THICKNESS);
 	}
 	puts("</g>");
 }
 
 
 
-void feature(struct control const *pos, uchar* val, const char *class)
+void feature(struct control const *pos, uchar* val)
 {
 	/* A major feature is encoded as a polygon with up to 8 sides
 	 * in the lower 3 bits, and a number of flags
@@ -161,13 +178,13 @@ void feature(struct control const *pos, uchar* val, const char *class)
 
 	switch (sides) {
 	case 1:
-		draw_circle(pos, flags, class);
+		draw_circle(pos, flags);
 		break;
 	case 2:
-		draw_eye(pos, flags, class);
+		draw_eye(pos, flags);
 		break;
 	default:
-		draw_polygon(pos, sides, flags, class);
+		draw_polygon(pos, sides, flags);
 	}
 }
 
@@ -194,17 +211,17 @@ int main(int argc, char *argv[])
 	struct control pos = {
 		.cx = 0, .cy = 0,
 		.scale = 840,
-		.thickness = 80,
+		.order = 0,
 		.bearing = 0 };
 
 	/* Primary circle: always there, for the time being */
-	draw_circle(&pos, 0, "essential");
+	draw_circle(&pos, 0);
 
-	pos.scale -= pos.thickness;
-	pos.thickness -= 20;
+	pos.scale -= thickness[pos.order];
+	pos.order += 1;
 
 	/* Primary feature */
-	feature(&pos, pool, "primary");
+	feature(&pos, pool);
 
 	puts("</svg>");
 	return 0;
