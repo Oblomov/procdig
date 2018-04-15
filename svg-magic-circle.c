@@ -94,6 +94,13 @@ static const int thickness[] = {
  * and the standard version.
  */
 #define STARCROSS (FLIPROT >> 1)
+/* FIXME STARCROSS without FLIPROT and without HAIRLINE currently has
+ * low-quality line endings
+ */
+/* TODO support this in the eye feature too (STARCROSS = put the eyeball */
+/* TODO consider drawing all understrikes first, and all overstrikes next,
+ * avoiding criss-crossing in case of overlaps in all cases
+ */
 
 /* Compute the circle radius/delta to move from cx/cy to find the vertices
  * considering the thickness of the feature to draw */
