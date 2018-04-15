@@ -88,6 +88,13 @@ static const int thickness[] = {
  * angles, depending on the number of vertices */
 #define FLIPROT (HAIRLINE >> 1)
 
+/* For polygons we have the option to draw the classic polygon, or a cross/star
+ * version. Note that if cross/star version is enabled, then FLIPROT
+ * changes meaning: it means that we want to draw both the cross/star version
+ * and the standard version.
+ */
+#define STARCROSS (FLIPROT >> 1)
+
 /* Compute the circle radius/delta to move from cx/cy to find the vertices
  * considering the thickness of the feature to draw */
 int delta(struct control const *pos, bool hairline)
@@ -104,11 +111,29 @@ void print_missing_flags(int flags, int used)
 			flags, flags | used);
 }
 
-void poly_path_spec(struct control const *vertex, int sides)
+int get_next_vertex(int i, int sides, bool starcross)
+{
+	const bool odd = sides & 1;
+	if (!starcross)
+		return i;
+	if (odd)
+		return 2*i % sides;
+	if (i & 1)
+		return sides/2 + i/2;
+	else
+		return -i/2;
+}
+
+void poly_path_spec(struct control const *vertex, int sides,
+	bool starcross)
 {
 	printf("d='M %d %d", vertex[0].cx, vertex[0].cy);
 	for (int i = 1; i < sides; ++i) {
-		printf(" L %d %d", vertex[i].cx, vertex[i].cy);
+		int j = get_next_vertex(i, sides, starcross);
+		bool unlinked = (j < 0);
+		if (j < 0) j = - j;
+		fprintf(stderr, "%d %d\n", i, j);
+		printf(" %s %d %d", unlinked ? "M" : "L", vertex[j].cx, vertex[j].cy);
 	}
 	printf("z' ");
 }
@@ -189,7 +214,8 @@ void draw_polygon(struct control const *pos, int sides, int flags)
 {
 	const bool hairline = flags & HAIRLINE;
 	const bool fliprot = flags & FLIPROT;
-	const int used_flags = flags & (HAIRLINE | FLIPROT);
+	const bool starcross = flags & STARCROSS;
+	const int used_flags = flags & (HAIRLINE | FLIPROT | STARCROSS);
 	const int dx = delta(pos, hairline);
 	const int thick = thickness[pos->order];
 	const bool odd = sides & 1;
@@ -206,23 +232,44 @@ void draw_polygon(struct control const *pos, int sides, int flags)
 		v->scale -= thick;
 	}
 
+	/* Alternate polygon, drawn if fliprot.
+	 * If starcross, then the alternate polygon is just the standard
+	 * polygon with starcross disabled, otherwise it's
+	 * the actual flip/rotated polygon
+	 */
+	struct control alternate = *pos;
+	if (!starcross)
+		alternate.bearing += odd ? MAX_BEARING/2 : vb/2;
+
 	printf("<g class='polygon %s'>\n", class[pos->order]);
 	print_missing_flags(flags, hairline);
-	printf("<path "); poly_path_spec(vertex, sides);
 	if (hairline) {
+		printf("<path ");
+		poly_path_spec(vertex, sides, starcross);
 		puts("/>");
+		if (fliprot && starcross) {
+			draw_polygon(&alternate, sides, (flags | hairline*HAIRLINE));
+		}
 	} else {
+		printf("<path ");
+		poly_path_spec(vertex, sides, starcross);
 		printf("stroke-width='%d' />", thick);
-		printf("<path "); poly_path_spec(vertex, sides);
+
+		if (fliprot && starcross) {
+			draw_polygon(&alternate, sides, (flags | hairline*HAIRLINE));
+		}
+
+		printf("<path ");
+		poly_path_spec(vertex, sides, starcross);
 		printf("stroke-width='%d' class='overstrike' />\n",
 			thick - EXTRA_THICKNESS);
 	}
 	puts("</g>");
 
-	if (fliprot) {
+	if (fliprot && !starcross) {
 		struct control rot = *pos;
 		rot.bearing += odd ? MAX_BEARING/2 : vb/2;
-		draw_polygon(&rot, sides, (flags | used_flags) & ~FLIPROT);
+		draw_polygon(&rot, sides, (flags | hairline*HAIRLINE));
 	}
 }
 
